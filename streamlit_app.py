@@ -1,4 +1,3 @@
-# Import python packages
 import streamlit as st
 from snowflake.snowpark.functions import col
 import requests
@@ -17,8 +16,6 @@ st.write('The name on your Smoothie will be:', name_on_order)
 
 # Get fruit list from Snowflake
 my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-
-# Convert Snowpark DF → Python list
 fruit_options = my_dataframe.collect()
 fruit_names = [row['FRUIT_NAME'] for row in fruit_options]
 
@@ -29,16 +26,38 @@ ingredients_list = st.multiselect(
     max_selections=5
 )
 
-# ===============================
-#        API FRUIT INFO
-# ===============================
+# ======================================
+#     API — FRUIT NUTRITION INFO
+# ======================================
 st.subheader("🍉 Fruit Nutrition Information")
 
-# Selecionar **uma** fruta para ver informações nutricionais
 fruit_choice = st.selectbox("Select a fruit to see details:", fruit_names)
 
 if fruit_choice:
     st.write(f"### {fruit_choice} Nutrition Information")
 
-    # Request da fruta selecionada
-    response = requests.
+    # Request CORRETO (sem quebra de linha)
+    response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{fruit_choice}")
+
+    if response.status_code == 200:
+        st.dataframe(response.json(), use_container_width=True)
+    else:
+        st.error("Could not load fruit information.")
+
+# ======================================
+#            SUBMIT ORDER
+# ======================================
+if ingredients_list:
+
+    ingredients_string = " ".join(ingredients_list)
+
+    my_insert_stmt = f"""
+        INSERT INTO smoothies.public.orders(ingredients, name_on_order)
+        VALUES ('{ingredients_string}', '{name_on_order}')
+    """
+
+    time_to_insert = st.button('Submit Order')
+
+    if time_to_insert:
+        session.sql(my_insert_stmt).collect()
+        st.success('Your Smoothie is ordered!', icon="✅")
