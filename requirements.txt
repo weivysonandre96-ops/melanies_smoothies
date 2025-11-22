@@ -1,4 +1,3 @@
 # requirements.txt
 streamlit
 snowflake-snowpark-python[pandas]
-pandas as pd
