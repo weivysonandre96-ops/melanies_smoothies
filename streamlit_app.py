@@ -31,7 +31,8 @@ ingredients_list = st.multiselect(
 
 # API request (seu complemento)
 st.subheader("🍉 Info about a fruit: Watermelon")
-smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
+st.subheader(fruit_chosen + "Nutrition Information")
+smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/" + fruit_chosen)
 
 # Show API data
 st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
