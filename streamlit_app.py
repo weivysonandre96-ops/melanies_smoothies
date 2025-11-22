@@ -29,26 +29,16 @@ ingredients_list = st.multiselect(
     max_selections=5
 )
 
-# API request (seu complemento)
-st.subheader("🍉 Info about a fruit: Watermelon")
-st.subheader(fruit_names + 'Nutrition Information')
-smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/" + fruit_names)
+# ===============================
+#        API FRUIT INFO
+# ===============================
+st.subheader("🍉 Fruit Nutrition Information")
 
-# Show API data
-st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
+# Selecionar **uma** fruta para ver informações nutricionais
+fruit_choice = st.selectbox("Select a fruit to see details:", fruit_names)
 
-# Submit order
-if ingredients_list:
+if fruit_choice:
+    st.write(f"### {fruit_choice} Nutrition Information")
 
-    ingredients_string = " ".join(ingredients_list)
-
-    my_insert_stmt = f"""
-        INSERT INTO smoothies.public.orders(ingredients, name_on_order)
-        VALUES ('{ingredients_string}', '{name_on_order}')
-    """
-
-    time_to_insert = st.button('Submit Order')
-
-    if time_to_insert:
-        session.sql(my_insert_stmt).collect()
-        st.success('Your Smoothie is ordered!', icon="✅")
+    # Request da fruta selecionada
+    response = requests.
