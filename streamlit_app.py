@@ -1,12 +1,14 @@
+# Import python packages
 import streamlit as st
-from snowflake.snowpark.functions import col
+import pandas as pd
 import requests
+from snowflake.snowpark.functions import col
 
 # App title
 st.title("🥤 Customize Your Smoothie! 🥤")
 st.write("Choose the fruits you want in your custom smoothie!")
 
-# Connect to Snowflake (apenas funciona dentro do Snowflake)
+# Connect to Snowflake
 cnx = st.connection("snowflake")
 session = cnx.session()
 
@@ -14,50 +16,57 @@ session = cnx.session()
 name_on_order = st.text_input('Name on Smoothie:')
 st.write('The name on your Smoothie will be:', name_on_order)
 
-# Get fruit list from Snowflake
-my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-fruit_options = my_dataframe.collect()
-fruit_names = [row['FRUIT_NAME'] for row in fruit_options]
+# Get FRUIT_NAME + SEARCH_ON from Snowflake
+my_dataframe = session.table("smoothies.public.fruit_options") \
+    .select(col("FRUIT_NAME"), col("SEARCH_ON"))
+
+# Convert Snowpark DF → Pandas DF
+pd_df = my_dataframe.to_pandas()
+
+# Show for debugging
+st.subheader("📋 Fruit Options Table")
+st.dataframe(pd_df, use_container_width=True)
+
+# STOP so you can inspect this step (remove later)
+st.stop()
+
+# Create list of fruit names for the multiselect
+fruit_names = pd_df["FRUIT_NAME"].tolist()
 
 # Multiselect
-ingredients_list = st.multiselect(
-    'Choose up to 5 ingredients:',
+fruit_chosen = st.multiselect(
+    "Choose up to 5 ingredients:",
     fruit_names,
     max_selections=5
 )
 
-# ======================================
-#     API — FRUIT NUTRITION INFO
-# ======================================
-st.subheader("🍉 Fruit Nutrition Information")
+# API Lookup Section
+if fruit_chosen:
+    st.subheader("🔍 Nutrition Search Results")
 
-fruit_choice = st.selectbox("Select a fruit to see details:", fruit_names)
+    for fruit in fruit_chosen:
+        # Get SEARCH_ON value from dataframe
+        search_on = pd_df.loc[pd_df['FRUIT_NAME'] == fruit, 'SEARCH_ON'].iloc[0]
 
-if fruit_choice:
-    st.write(f"### {fruit_choice} Nutrition Information")
+        st.write(f"Searching for **{fruit}** using API value **{search_on}**")
 
-    # Request CORRETO (sem quebra de linha)
-    response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{fruit_choice}")
+        # API call
+        response = requests.get("https://my.smoothiefroot.com/api/fruit/" + search_on)
 
-    if response.status_code == 200:
-        st.dataframe(response.json(), use_container_width=True)
-    else:
-        st.error("Could not load fruit information.")
+        if response.status_code == 200:
+            st.dataframe(response.json(), use_container_width=True)
+        else:
+            st.error(f"No API data found for: {search_on}")
 
-# ======================================
-#            SUBMIT ORDER
-# ======================================
-if ingredients_list:
+# SUBMIT ORDER
+if fruit_chosen:
+    ingredients_string = ", ".join(fruit_chosen)
 
-    ingredients_string = " ".join(ingredients_list)
-
-    my_insert_stmt = f"""
+    insert_stmt = f"""
         INSERT INTO smoothies.public.orders(ingredients, name_on_order)
         VALUES ('{ingredients_string}', '{name_on_order}')
     """
 
-    time_to_insert = st.button('Submit Order')
-
-    if time_to_insert:
-        session.sql(my_insert_stmt).collect()
-        st.success('Your Smoothie is ordered!', icon="✅")
+    if st.button("Submit Order"):
+        session.sql(insert_stmt).collect()
+        st.success("Your Smoothie is ordered! 🥤✨")
